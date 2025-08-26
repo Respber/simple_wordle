@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <script src="https://cdn.staticfile.net/jquery/3.7.1/jquery.js"></script>
+    <meta charset="UTF-8">
+    <title>Wordle</title>
+</head>
+<body>
+<div class="game_container">
+    <!--<div class="game_row">
+        <div class="game_block user_input"><span>F</span></div>
+    </div>-->
+</div>
+<div class="keyboard">
+    <div class="kbd_row kbd_row_0">
+        <!--<div class="key">
+            <span>Q</span>
+        </div>
+        <div class="key">
+            <span>W</span>
+        </div>-->
+    </div>
+    <div class="kbd_row kbd_row_1">
+        <!--<div class="key">
+            <span>Q</span>
+        </div>
+        <div class="key">
+            <span>W</span>
+          -->
+    </div>
+    <div class="kbd_row kbd_row_2">
+    </div>
+</div>
+<style>
+    .game_container span {
+        font-size: 2em;
+        font-weight: 700;
+    }
+
+    .game_row {
+        width: 100%;
+        height: auto;
+        display: flex;
+        justify-content: center;
+    }
+
+    .game_block {
+        display: flex;
+        position: relative;
+        width: 4em;
+        height: 4em;
+        border: 2px solid #ccc;
+        border-radius: 0.25em;
+        margin: 0.125em;
+
+        align-items: center;
+        justify-content: center;
+    }
+
+    .empty {
+        background-color: #fff;
+    }
+
+    .user_input {
+        border: 2px solid #777;
+    }
+
+    .user_input span {
+        color: #333;
+    }
+
+    .totally_correct {
+        background-color: #494;
+    }
+
+    .totally_correct span {
+        color: #fff;
+    }
+
+    .particial_correct {
+        background-color: #CA1;
+    }
+
+    .particial_correct span {
+        color: #fff;
+    }
+
+    .incorrect {
+        background-color: #777;
+    }
+
+    .incorrect span {
+        color: #fff;
+    }
+
+    .keyboard {
+        display: block;
+        margin-top: 2em;
+    }
+
+    .kbd_row {
+        display: flex;
+        justify-content: center;
+    }
+
+    .kbd_row .key {
+        display: flex;
+        width: 2.5em;
+        height: 3.5em;
+        margin: 0.125em;
+        justify-content: center;
+        align-items: center;
+        background-color: #ddd;
+        border-radius: 0.25em;
+    }
+
+    .kbd_row .key span {
+        color: #333;
+        font-size: 1.25em;
+        font-weight: 700;
+    }
+
+    .kbd_row .command span {
+        font-size: 1em !important;
+    }
+
+    .kbd_row .command {
+        width: 4em !important;
+    }
+</style>
+<script>
+    const WIDTH = 5;
+    const HEIGHT = 6;
+    var input_buffer = [];
+    var cursor = 0;
+    var ANSWER;
+
+    function MakeGrid() {
+        var root = document.getElementsByClassName("game_container")[0];
+        for (let j = 0; j < HEIGHT; j++) {
+            let newRow = document.createElement("div");
+            newRow.setAttribute("id", "row" + j);
+            newRow.setAttribute("class", "game_row");
+            for (let i = 0; i < WIDTH; i++) {
+                let newBlock = document.createElement("div");
+                newBlock.setAttribute("class", "game_block empty");
+                newBlock.setAttribute("id", "block" + i);
+                newBlock.innerHTML = "<span></span>";
+                newRow.appendChild(newBlock);
+            }
+            root.appendChild(newRow);
+        }
+    }
+
+    const KEYS = "QWERTYUIOPASDFGHJKL#ZXCVBNM@";
+
+    function MakeKeyBoard() {
+        var root0 = document.getElementsByClassName("kbd_row_0")[0];
+        for (let j = 0; j < 10; j++) {
+            let newKey = document.createElement("div");
+            newKey.onclick = function () {
+                UserInput(KEYS[j])
+            };
+            newKey.setAttribute("class", "key");
+            newKey.setAttribute("id", "key" + KEYS[j]);
+            newKey.innerHTML = "<span>" + KEYS[j] + "</span>";
+            root0.appendChild(newKey);
+        }
+        //第一行
+        var root1 = document.getElementsByClassName("kbd_row_1")[0];
+        for (let j = 10; j < 19; j++) {
+            let newKey = document.createElement("div");
+            newKey.setAttribute("class", "key");
+            newKey.onclick = function () {
+                UserInput(KEYS[j])
+            };
+            newKey.setAttribute("id", "key" + KEYS[j]);
+            newKey.innerHTML = "<span>" + KEYS[j] + "</span>";
+            root1.appendChild(newKey);
+        }
+        //第二行
+        var root2 = document.getElementsByClassName("kbd_row_2")[0];
+        for (let j = 19; j < KEYS.length; j++) {
+            let cha = KEYS[j];
+            let newKey = document.createElement("div");
+
+            newKey.setAttribute("id", "key" + KEYS[j]);
+            if (cha == '#') {
+                newKey.setAttribute("class", "key command");
+                newKey.onclick = function () {
+                    CheckRow()
+                };
+                newKey.innerHTML = "<span>Enter</span>";
+            } else if (cha == '@') {
+                newKey.setAttribute("class", "key command");
+                newKey.onclick = function () {
+                    UserDelete()
+                };
+                newKey.innerHTML = "<span>Del</span>";
+            } else {
+                newKey.setAttribute("class", "key");
+                newKey.onclick = function () {
+                    UserInput(KEYS[j])
+                };
+                newKey.innerHTML = "<span>" + KEYS[j] + "</span>";
+            }
+            root2.appendChild(newKey);
+        }
+        //第三行
+    }
+
+    function UserInput(content) {
+        if (input_buffer.length >= 5) return;
+        input_buffer.push(content);
+        console.log(input_buffer);
+        UpdateRow();
+    }
+
+    document.addEventListener("keydown", function (e) {
+        if ("qwertyuiopasdfghjklzxcvbnmEnterDeleteQWERTYUIOPASDFGHJKLZXCVBNM".indexOf(event.key) > -1) {
+            if (event.key == "Enter") {
+                CheckRow();
+            } else if (event.key == "Delete") {
+                UserDelete();
+            } else {
+                UserInput(event.key.toUpperCase());
+            }
+        }
+    });
+
+    function UserDelete() {
+        input_buffer.pop();
+        console.log(input_buffer);
+        UpdateRow();
+    }
+
+    function UpdateRow() {
+        var row = document.getElementsByClassName("game_row")[cursor];
+        var blocks = row.getElementsByClassName("game_block");
+        var it = 0;
+        for (it = 0; it < input_buffer.length; it++) {
+            blocks[it].innerHTML = "<span>" + input_buffer.at(it) + "</span>";
+            blocks[it].setAttribute("class", "game_block user_input");
+        }
+        for (; it < 5; it++) {
+            blocks[it].innerHTML = "<span></span>";
+            blocks[it].setAttribute("class", "game_block empty");
+        }
+    }
+
+    const today = new Date();
+
+    function GetAnswer() {
+        let year = today.getFullYear().toString();
+        let month = (today.getMonth() + 1).toString();
+        let day = today.getDate().toString();
+        if (month.length < 2) month = "0" + month;
+        if (day.length < 2) day = "0" + day;
+        let dat = year + "-" + month + "-" + day;
+        $.ajax({
+            url: "https://wordle.geek-tech.group/api/wordle/" + dat,
+            success: function (response) {
+                console.log(response);
+            }
+        })
+    }
+
+    function SetAnswer() {
+        let pool=["SMOKE","OUGHT","CATCH","WATCH","PUNCH"];
+        var index=Math.floor((Math.random()*100))%pool.length;
+        ANSWER = pool[index]
+    }
+
+    function CheckRow() {
+        console.log(cursor);
+        var row = document.getElementsByClassName("game_row")[cursor];
+        var blocks = row.getElementsByClassName("game_block");
+        let co_cnt = 0;
+        for (let i = 0; i < 5; i++) {
+            if (input_buffer[i] == ANSWER[i]) {
+                blocks[i].setAttribute("class", "game_block totally_correct");
+                co_cnt++;
+            } else if (ANSWER.indexOf(input_buffer[i]) > -1) {
+                blocks[i].setAttribute("class", "game_block particial_correct");
+            }else{
+                blocks[i].setAttribute("class", "game_block incorrect");
+            }
+        }
+        UpdateKbd();
+        
+        cursor++;
+        if (co_cnt == 5) {
+            UpdateRow();
+            setTimeout(function () {
+                swal({
+                    title: "做的好啊你做的好",
+                    text: "你成功了",
+                    icon: "success",
+                    buttons: "再来一局",
+                }).then((val) => {
+                    if (val) {
+                        location.reload();
+                    }
+                });
+            }, 100);
+        }else{
+            if(cursor >= 6){
+                cursor=5;
+                UpdateRow();
+                setTimeout(function () {
+                    swal({
+                        title: "前有难题",
+                        text: "你失败了",
+                        icon: "error",
+                        buttons: "再来一局",
+                    }).then((val) => {
+                        if (val) {
+                            location.reload();
+                        }
+                    });
+                }, 100);
+            }
+        }
+        input_buffer = [];
+    }
+    function UpdateKbd(){
+        var rows = document.getElementsByClassName("game_row");
+        for(var i = 0; i < rows.length; i++){
+            var blocks = rows[i].getElementsByClassName("game_block");
+            for (var j = 0; j < blocks.length; j++) {
+                if(blocks[j].getAttribute("class").indexOf("empty")>-1)return;
+                key_name=blocks[j].innerHTML[6];
+                console.log(key_name);
+            }
+        }
+    }
+
+    window.onload = function () {
+        MakeGrid();
+        MakeKeyBoard();
+        SetAnswer();
+    }
+</script>
+</body>
+</html>
